@@ -1,0 +1,1961 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>منصة تنظيم ومتابعة المذاكرة - نظام إدارة الدراسة الشامل</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts (Cairo & Orbitron for clock) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Orbitron:wght@600;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            cairo: ['Cairo', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+            digital: ['Orbitron', 'sans-serif']
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Cairo', sans-serif;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    .dark .glass-card {
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    /* Flip Clock Styles */
+    .flip-unit {
+      perspective: 400px;
+    }
+    .flip-card {
+      position: relative;
+      border-radius: 0.75rem;
+      background: #0f172a;
+      color: #38bdf8;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 0 15px rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .dark .flip-card {
+      background: #030712;
+      color: #38bdf8;
+      border-color: rgba(56, 189, 248, 0.2);
+    }
+    .flip-card::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 2px;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 10;
+    }
+    /* Scanner Beam Animation */
+    @keyframes scanBeam {
+      0% { top: 0%; opacity: 0.8; }
+      50% { top: 96%; opacity: 1; }
+      100% { top: 0%; opacity: 0.8; }
+    }
+    .scanner-active .scan-line {
+      animation: scanBeam 2.2s ease-in-out infinite;
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      border-radius: 4px;
+    }
+    .dark ::-webkit-scrollbar-thumb {
+      background: #475569;
+    }
+    .checkbox-custom:checked + label .check-icon {
+      opacity: 1;
+      transform: scale(1);
+    }
+  </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-200">
+
+  <!-- Header & Navigation -->
+  <header class="sticky top-0 z-40 border-b border-slate-200/80 dark:border-slate-800 glass-card">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3 space-x-reverse">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+          <i class="fa-solid fa-shapes text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-black tracking-tight text-slate-900 dark:text-white leading-tight">منصة الطالب الذكية | Study OS</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400">إدارة الامتحانات، الدروس، والساعة الرقمية</p>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="flex items-center space-x-2 space-x-reverse">
+        <button onclick="openModal('addSubjectModal')" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition">
+          <i class="fa-solid fa-plus"></i>
+          <span>إضافة مادة / واجب</span>
+        </button>
+
+        <button onclick="openModal('aiScannerModal')" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl text-indigo-700 bg-indigo-100 dark:bg-indigo-950/70 dark:text-indigo-300 hover:bg-indigo-200 transition">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span class="hidden sm:inline">مسح كشكولك بالـ AI</span>
+        </button>
+
+        <button id="themeToggleBtn" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition">
+          <i class="fa-solid fa-moon dark:hidden"></i>
+          <i class="fa-solid fa-sun hidden dark:inline"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Top Row: Modern Flip Clock & Quick Calendar Widgets -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- Trendy Digital Flip Clock -->
+      <div class="lg:col-span-7 glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between relative overflow-hidden">
+        <div class="flex items-center justify-between pb-3 mb-2 border-b border-slate-200/60 dark:border-slate-800">
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-3 w-3 relative">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            </span>
+            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-300">الساعة الرقمية الحية (Flip Clock)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="currentDateBadge" class="text-xs font-bold px-3 py-1 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono">--/--/----</span>
+          </div>
+        </div>
+
+        <!-- The Flip Digital Counters -->
+        <div class="py-4 flex items-center justify-center gap-2 sm:gap-4 select-none dir-ltr">
+          <!-- Hours -->
+          <div class="text-center">
+            <div class="flip-card w-16 sm:w-24 h-20 sm:h-28 flex items-center justify-center font-digital text-3xl sm:text-6xl font-black rounded-2xl">
+              <span id="flipHours">00</span>
+            </div>
+            <span class="block text-[11px] font-bold text-slate-400 mt-2">ساعات</span>
+          </div>
+
+          <div class="text-2xl sm:text-4xl font-black text-indigo-500 animate-pulse pb-6">:</div>
+
+          <!-- Minutes -->
+          <div class="text-center">
+            <div class="flip-card w-16 sm:w-24 h-20 sm:h-28 flex items-center justify-center font-digital text-3xl sm:text-6xl font-black rounded-2xl">
+              <span id="flipMinutes">00</span>
+            </div>
+            <span class="block text-[11px] font-bold text-slate-400 mt-2">دقائق</span>
+          </div>
+
+          <div class="text-2xl sm:text-4xl font-black text-indigo-500 animate-pulse pb-6">:</div>
+
+          <!-- Seconds -->
+          <div class="text-center">
+            <div class="flip-card w-16 sm:w-24 h-20 sm:h-28 flex items-center justify-center font-digital text-3xl sm:text-6xl font-black rounded-2xl border-indigo-500/50">
+              <span id="flipSeconds" class="text-indigo-400">00</span>
+            </div>
+            <span class="block text-[11px] font-bold text-slate-400 mt-2">ثواني</span>
+          </div>
+
+          <!-- AM/PM -->
+          <div class="flex flex-col justify-center items-center pb-6 mr-1">
+            <span id="flipPeriod" class="px-2 py-1 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold text-xs font-mono">AM</span>
+          </div>
+        </div>
+
+        <!-- Bottom Quote / Pomodoro toggle shortcut -->
+        <div class="pt-3 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-clock-rotate-left text-indigo-500"></i> الوقت كالسيف، استغل كل ثانية!</span>
+          <button onclick="scrollToSection('pomodoroSection')" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">مؤقت البومودورو &larr;</button>
+        </div>
+      </div>
+
+      <!-- Interactive Mini Calendar with Auto Renewal -->
+      <div class="lg:col-span-5 glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+        <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/60 dark:border-slate-800">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-calendar-days text-indigo-600 dark:text-indigo-400"></i>
+            <h3 id="calendarMonthTitle" class="font-bold text-sm text-slate-900 dark:text-white">تقويم الشهر</h3>
+          </div>
+          <div class="flex items-center gap-1">
+            <button onclick="changeMonth(-1)" class="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-800 text-xs text-slate-600 dark:text-slate-300"><i class="fa-solid fa-chevron-right"></i></button>
+            <button onclick="changeMonth(1)" class="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-800 text-xs text-slate-600 dark:text-slate-300"><i class="fa-solid fa-chevron-left"></i></button>
+          </div>
+        </div>
+
+        <!-- Calendar Weekdays -->
+        <div class="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-slate-400 pb-1">
+          <span>سبت</span>
+          <span>أحد</span>
+          <span>إثنين</span>
+          <span>ثلاثاء</span>
+          <span>أربعاء</span>
+          <span>خميس</span>
+          <span>جمعة</span>
+        </div>
+
+        <!-- Calendar Grid Days -->
+        <div id="calendarDaysGrid" class="grid grid-cols-7 gap-1 text-center text-xs font-semibold my-1">
+          <!-- Dynamic Days injected by JS -->
+        </div>
+
+        <div class="pt-2 text-[11px] flex items-center justify-between text-slate-500 dark:text-slate-400 border-t border-slate-200/60 dark:border-slate-800">
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-indigo-600 inline-block"></span> اليوم الحالي</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span> امتحانات</span>
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> محاضرات</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Hub Tabs (Navigation between different areas) -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-200 dark:border-slate-800 text-xs sm:text-sm font-bold">
+      <button onclick="switchTab('studySchedule')" id="tabBtn-studySchedule" class="tab-nav-btn active flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-indigo-600 text-white shadow-sm transition whitespace-nowrap">
+        <i class="fa-solid fa-list-check"></i>
+        <span>منظم المواد والشباتر</span>
+      </button>
+      <button onclick="switchTab('examsTab')" id="tabBtn-examsTab" class="tab-nav-btn flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition whitespace-nowrap border border-slate-200 dark:border-slate-700">
+        <i class="fa-solid fa-file-pen text-rose-500"></i>
+        <span>جدول الامتحانات</span>
+        <span id="examsCountBadge" class="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">0</span>
+      </button>
+      <button onclick="switchTab('lecturesTab')" id="tabBtn-lecturesTab" class="tab-nav-btn flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition whitespace-nowrap border border-slate-200 dark:border-slate-700">
+        <i class="fa-solid fa-chalkboard-user text-emerald-500"></i>
+        <span>المحاضرات والدروس الحضورية</span>
+      </button>
+      <button onclick="switchTab('onlineTab')" id="tabBtn-onlineTab" class="tab-nav-btn flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition whitespace-nowrap border border-slate-200 dark:border-slate-700">
+        <i class="fa-solid fa-video text-sky-500"></i>
+        <span>الدروس الأونلاين (Zoom / Teams)</span>
+      </button>
+    </div>
+
+    <!-- ==================== TAB 1: STUDY & CHAPTERS SCHEDULE ==================== -->
+    <div id="tabContent-studySchedule" class="tab-content space-y-6">
+      
+      <!-- Progress Overview & Stats Banner -->
+      <div id="pomodoroSection" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Global Progress Card -->
+        <div class="lg:col-span-2 glass-card rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm relative overflow-hidden">
+          <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div class="space-y-2 max-w-lg">
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">
+                <i class="fa-solid fa-chart-line text-xs"></i> نسبة المذاكرة الكلية
+              </span>
+              <h2 class="text-2xl font-black text-slate-900 dark:text-white">جاهز للتفوق؟ تابع إنجاز الشباتر!</h2>
+              <p class="text-sm text-slate-600 dark:text-slate-400">
+                شباتر وملفات الـ PDF لكل يوم دراسي. يمكنك تحديد وقت المذاكرة المفضل لكل مادة وسيتولى التطبيق حفظ كافة تغييراتك.
+              </p>
+            </div>
+
+            <div class="flex items-center gap-4 bg-white/70 dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shrink-0">
+              <div class="relative w-20 h-20 flex items-center justify-center">
+                <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                  <path class="text-slate-200 dark:text-slate-700" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                  <path id="progressCircle" class="text-indigo-600 transition-all duration-700 ease-out" stroke-dasharray="0, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
+                <span id="overallPercentage" class="absolute font-extrabold text-base text-slate-800 dark:text-white">0%</span>
+              </div>
+              <div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">الشباتر المنجزة</p>
+                <p class="text-xl font-bold text-slate-900 dark:text-white"><span id="completedItemsCount">0</span> / <span id="totalItemsCount">11</span></p>
+                <span id="motivationalBadge" class="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">ابدأ أول مهمة! 🚀</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Linear Progress Bar -->
+          <div class="mt-6 w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+            <div id="progressBarLinear" class="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 h-full rounded-full w-0 transition-all duration-500"></div>
+          </div>
+        </div>
+
+        <!-- Built-in Pomodoro Study Timer -->
+        <div class="glass-card rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div class="flex items-center gap-2">
+              <span class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <i class="fa-solid fa-stopwatch text-sm"></i>
+              </span>
+              <h3 class="font-bold text-sm text-slate-800 dark:text-white">مؤقت المذاكرة (Pomodoro)</h3>
+            </div>
+            <span id="timerModeBadge" class="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-bold">جلسة تركيز</span>
+          </div>
+
+          <div class="py-4 text-center">
+            <div id="timerDisplay" class="font-mono text-4xl sm:text-5xl font-black tracking-widest text-slate-900 dark:text-white">25:00</div>
+            <p id="timerMessage" class="text-xs text-slate-500 dark:text-slate-400 mt-1">25 دقيقة تركيز تام بدون مشتتات</p>
+          </div>
+
+          <div class="flex items-center justify-center gap-2 pt-2">
+            <button id="timerToggleBtn" onclick="toggleTimer()" class="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md shadow-indigo-600/30 transition flex items-center justify-center gap-2">
+              <i id="timerBtnIcon" class="fa-solid fa-play"></i>
+              <span id="timerBtnText">بدء</span>
+            </button>
+            <button onclick="resetTimer()" class="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="إعادة المؤقت">
+              <i class="fa-solid fa-arrow-rotate-right"></i>
+            </button>
+            <button onclick="switchTimerMode()" class="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="تبديل (مذاكرة / استراحة)">
+              <i class="fa-solid fa-mug-hot"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Days & Search -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1">
+          <button onclick="filterDays('all')" class="day-tab-btn active px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 text-white shadow-sm transition">
+            جميع الأيام
+          </button>
+          <button onclick="filterDays('sunday')" class="day-tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-700 transition">
+            الأحد
+          </button>
+          <button onclick="filterDays('tuesday')" class="day-tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-700 transition">
+            الثلاثاء
+          </button>
+          <button onclick="filterDays('thursday')" class="day-tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-700 transition">
+            الخميس
+          </button>
+        </div>
+
+        <div class="relative w-full sm:w-64">
+          <i class="fa-solid fa-magnifying-glass absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+          <input type="text" id="subjectSearch" oninput="handleSearch(this.value)" placeholder="ابحث عن مادة أو شابتر..." class="w-full pr-9 pl-4 py-2 rounded-xl text-xs sm:text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white" />
+        </div>
+      </div>
+
+      <!-- Schedule Cards Container -->
+      <div id="scheduleGrid" class="space-y-8">
+        
+        <!-- DAY 1: الأحد (Sunday) -->
+        <section class="day-section" data-day="sunday">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-300 flex items-center justify-center font-black">
+                1
+              </div>
+              <div>
+                <h3 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  يوم الأحد <span class="text-xs font-normal text-slate-500 dark:text-slate-400">(Sunday)</span>
+                </h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">مقدمة في علم البيانات</p>
+              </div>
+            </div>
+            <span class="day-progress-tag px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+              0% منجز
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <!-- Subject: Intro to Data Science -->
+            <div class="subject-card rounded-2xl p-5 border border-pink-200 dark:border-pink-900/50 bg-gradient-to-b from-pink-50/60 to-white dark:from-slate-800/90 dark:to-slate-900 shadow-sm hover:shadow-md transition">
+              <div class="flex items-start justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-11 h-11 rounded-xl bg-pink-500 text-white flex items-center justify-center text-xl shadow-md shadow-pink-500/20">
+                    📊
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-base text-slate-900 dark:text-white">Introduction to Data Science</h4>
+                    <p class="text-xs font-semibold text-pink-600 dark:text-pink-400">مقدمة في علم البيانات</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1 text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <i class="fa-regular fa-clock text-xs text-pink-500"></i>
+                  <span class="subject-time-badge" data-key="time_ds">06:00 PM</span>
+                </div>
+              </div>
+
+              <!-- Chapter Checklist -->
+              <div class="mt-4 pt-4 border-t border-pink-100 dark:border-slate-800 space-y-2.5">
+                <div class="chapter-item flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" id="item-ds-pdf1" data-id="ds-pdf1" class="hidden checkbox-custom" onchange="toggleItem('ds-pdf1')">
+                    <label for="item-ds-pdf1" class="w-5 h-5 rounded-md border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center cursor-pointer hover:border-pink-500 transition">
+                      <i class="fa-solid fa-check text-[10px] text-pink-600 check-icon opacity-0 scale-50 transition-all"></i>
+                    </label>
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 item-title">PDF (1) - المنهج والأساسيات</span>
+                  </div>
+                  <span class="text-[11px] px-2 py-0.5 rounded bg-pink-100 dark:bg-pink-950 text-pink-700 dark:text-pink-300 font-bold">PDF</span>
+                </div>
+              </div>
+
+              <div class="mt-3">
+                <input type="text" data-subject="ds" onchange="saveSubjectNote('ds', this.value)" placeholder="ملاحظة سريعة للمادة..." class="subject-note-input w-full text-xs px-3 py-1.5 rounded-lg bg-pink-50/50 dark:bg-slate-800/40 border border-pink-200/60 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-pink-500 dark:text-slate-200">
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- DAY 2: الثلاثاء (Tuesday) -->
+        <section class="day-section" data-day="tuesday">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-300 flex items-center justify-center font-black">
+                2
+              </div>
+              <div>
+                <h3 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  يوم الثلاثاء <span class="text-xs font-normal text-slate-500 dark:text-slate-400">(Tuesday)</span>
+                </h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">أمن الحاسوب والإلكترونيات (مادتين)</p>
+              </div>
+            </div>
+            <span class="day-progress-tag px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+              0% منجز
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5">
+            <!-- Subject 1: Computer Security -->
+            <div class="subject-card rounded-2xl p-5 border border-sky-200 dark:border-sky-900/50 bg-gradient-to-b from-sky-50/60 to-white dark:from-slate-800/90 dark:to-slate-900 shadow-sm hover:shadow-md transition">
+              <div class="flex items-start justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-11 h-11 rounded-xl bg-sky-500 text-white flex items-center justify-center text-xl shadow-md shadow-sky-500/20">
+                    🔒
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-base text-slate-900 dark:text-white">Computer Security</h4>
+                    <p class="text-xs font-semibold text-sky-600 dark:text-sky-400">أمن الحاسوب (3 شباتر)</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1 text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <i class="fa-regular fa-clock text-xs text-sky-500"></i>
+                  <span class="subject-time-badge" data-key="time_sec">04:00 PM</span>
+                </div>
+              </div>
+
+              <!-- Chapters -->
+              <div class="mt-4 pt-4 border-t border-sky-100 dark:border-slate-800 space-y-2.5">
+                <div class="chapter-item flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" id="item-sec-ch1" data-id="sec-ch1" class="hidden checkbox-custom" onchange="toggleItem('sec-ch1')">
+                    <label for="item-sec-ch1" class="w-5 h-5 rounded-md border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center cursor-pointer hover:border-sky-500 transition">
+                      <i class="fa-solid fa-check text-[10px] text-sky-600 check-icon opacity-0 scale-50 transition-all"></i>
+                    </label>
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 item-title">Chapter (ChP 1)</span>
+                  </div>
+                  <span class="text-[11px] px-2 py-0.5 rounded bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 font-bold">ChP 1</span>
+                </div>
+
+                <div class="chapter-item flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" id="item-sec-ch2" data-id="sec-ch2" class="hidden checkbox-custom" onchange="toggleItem('sec-ch2')">
+                    <label for="item-sec-ch2" class="w-5 h-5 rounded-md border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center cursor-pointer hover:border-sky-500 transition">
+                      <i class="fa-solid fa-check text-[10px] text-sky-600 check-icon opacity-0 scale-50 transition-all"></i>
+                    </label>
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 item-title">Chapter (ChP 2)</span>
+                  </div>
+                  <span class="text-[11px] px-2 py-0.5 rounded bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 font-bold">ChP 2</span>
+                </div>
+
+                <div class="chapter-item flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" id="item-sec-ch3" data-id="sec-ch3" class="hidden checkbox-custom" onchange="toggleItem('sec-ch3')">
+                    <label for="item-sec-ch3" class="w-5 h-5 rounded-md border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center cursor-pointer hover:border-sky-500 transition">
+                      <i class="fa-solid fa-check text-[10px] text-sky-600 check-icon opacity-0 scale-50 transition-all"></i>
+                    </label>
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 item-title">Chapter (ChP 3)</span>
+                  </div>
+                  <span class="text-[11px] px-2 py-0.5 rounded bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 font-bold">ChP 3</span>
+                </div>
+              </div>
+
+              <div class="mt-3">
+                <input type="text" data-subject="sec" onchange="saveSubjectNote('sec', this.value)" placeholder="ملاحظة سريعة لأمن الحاسوب..." class="subject-note-input w-full text-xs px-3 py-1.5 rounded-lg bg-sky-50/50 dark:bg-slate-800/40 border border-sky-200/60 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-500 dark:text-slate-200">
+              </div>
+            </div>
+
+            <!-- Subject 2: Electronic -->
+            <div class="subject-card rounded-2xl p-5 border border-emerald-200 dark:border-emerald-900/50 bg-gradient-to-b from-emerald-50/60 to-white dark:from-slate-800/90 dark:to-slate-900 shadow-sm hover:shadow-md transition">
+              <div class="flex items-start justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-11 h-11 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-xl shadow-md shadow-emerald-500/20">
+                    ⚡
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-base text-slate-900 dark:text-white">Electronic</h4>
+                    <p class="text-xs font-semibold text-emerald-600 dark:text-emerald-400">الإلكترونيات (4 ملفات PDF)</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1 text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <i class="fa-regular fa-clock text-xs text-emerald-500"></i>
+                  <span class="subject-time-badge" data-key="time_elec">08:00 PM</span>
+                </div>
+              </div>
+
+              <!-- PDFs -->
+              <div class="mt-4 pt-4 border-t border-emerald-100 dark:border-slate-800 space-y-2.5">
+                <div class="chapter-item flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" id="item-elec-pdf1" data-id="elec-pdf1" class="hidden checkbox-custom" onchange="toggleItem('elec-pdf1')">
+                    <label for="item-elec-pdf1" class="w-5 h-5 rounded-md border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center cursor-pointer hover:border-emerald-500 transition">
+                      <i class="fa-solid fa-check text-[10px] text-emerald-600 check-icon opacity-0 scale-50 transition-all"></i>
+                    </label>
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 item-title">PDF (1) - المحاضرة الأولى</span>
+                  </div>
+                  <span class="text-[11px] px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold">1</span>
+                </div>
+
+                <div class="chapter-item flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" id="item-elec-pdf2" data-id="elec-pdf2" class="hidden checkbox-custom" onchange="toggleItem('elec-pdf2')">
+                    <label for="item-elec-pdf2" class="w-5 h-5 rounded-md border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center cursor-pointer hover:border-emerald-500 transition">
+                      <i class="fa-solid fa-check text-[10px] text-emerald-600 check-icon opacity-0 scale-50 transition-all"></i>
+                    </label>
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 item-title">PDF (2) - المحاضرة الثانية</span>
+                  </div>
+                  <span class="text-[11px] px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold">2</span>
+                </div>
+
+                <div class="chapter-item flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" id="item-elec-pdf3" data-id="elec-pdf3" class="hidden checkbox-custom" onchange="toggleItem('elec-pdf3')">
+                    <label for="item-elec-pdf3" class="w-5 h-5 rounded-md border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center cursor-pointer hover:border-emerald-500 transition">
+                      <i class="fa-solid fa-check text-[10px] text-emerald-600 check-icon opacity-0 scale-50 transition-all"></i>
+                    </label>
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 item-title">PDF (3) - المحاضرة الثالثة</span>
+                  </div>
+                  <span class="text-[11px] px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold">3</span>
+                </div>
+
+                <div class="chapter-item flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" id="item-elec-pdf4" data-id="elec-pdf4" class="hidden checkbox-custom" onchange="toggleItem('elec-pdf4')">
+                    <label for="item-elec-pdf4" class="w-5 h-5 rounded-md border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center cursor-pointer hover:border-emerald-500 transition">
+                      <i class="fa-solid fa-check text-[10px] text-emerald-600 check-icon opacity-0 scale-50 transition-all"></i>
+                    </label>
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 item-title">PDF (4) - المحاضرة الرابعة</span>
+                  </div>
+                  <span class="text-[11px] px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold">4</span>
+                </div>
+              </div>
+
+              <div class="mt-3">
+                <input type="text" data-subject="elec" onchange="saveSubjectNote('elec', this.value)" placeholder="ملاحظة سريعة للإلكترونيات..." class="subject-note-input w-full text-xs px-3 py-1.5 rounded-lg bg-emerald-50/50 dark:bg-slate-800/40 border border-emerald-200/60 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:text-slate-200">
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- DAY 3: الخميس (Thursday) -->
+        <section class="day-section" data-day="thursday">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300 flex items-center justify-center font-black">
+                3
+              </div>
+              <div>
+                <h3 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  يوم الخميس <span class="text-xs font-normal text-slate-500 dark:text-slate-400">(Thursday)</span>
+                </h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">نظام التشغيل والاحتمال (مادتين)</p>
+              </div>
+            </div>
+            <span class="day-progress-tag px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+              0% منجز
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5">
+            <!-- Subject 1: Operating System -->
+            <div class="subject-card rounded-2xl p-5 border border-purple-200 dark:border-purple-900/50 bg-gradient-to-b from-purple-50/60 to-white dark:from-slate-800/90 dark:to-slate-900 shadow-sm hover:shadow-md transition">
+              <div class="flex items-start justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-11 h-11 rounded-xl bg-purple-600 text-white flex items-center justify-center text-xl shadow-md shadow-purple-600/20">
+                    💻
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-base text-slate-900 dark:text-white">Operating System</h4>
+                    <p class="text-xs font-semibold text-purple-600 dark:text-purple-400">نظام التشغيل</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1 text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <i class="fa-regular fa-clock text-xs text-purple-500"></i>
+                  <span class="subject-time-badge" data-key="time_os">05:00 PM</span>
+                </div>
+              </div>
+
+              <!-- Chapter -->
+              <div class="mt-4 pt-4 border-t border-purple-100 dark:border-slate-800 space-y-2.5">
+                <div class="chapter-item flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" id="item-os-pdf1" data-id="os-pdf1" class="hidden checkbox-custom" onchange="toggleItem('os-pdf1')">
+                    <label for="item-os-pdf1" class="w-5 h-5 rounded-md border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center cursor-pointer hover:border-purple-500 transition">
+                      <i class="fa-solid fa-check text-[10px] text-purple-600 check-icon opacity-0 scale-50 transition-all"></i>
+                    </label>
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 item-title">PDF (1) - المفاهيم والجدولة</span>
+                  </div>
+                  <span class="text-[11px] px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-bold">PDF 1</span>
+                </div>
+              </div>
+
+              <div class="mt-3">
+                <input type="text" data-subject="os" onchange="saveSubjectNote('os', this.value)" placeholder="ملاحظة سريعة لنظم التشغيل..." class="subject-note-input w-full text-xs px-3 py-1.5 rounded-lg bg-purple-50/50 dark:bg-slate-800/40 border border-purple-200/60 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500 dark:text-slate-200">
+              </div>
+            </div>
+
+            <!-- Subject 2: Probability -->
+            <div class="subject-card rounded-2xl p-5 border border-amber-200 dark:border-amber-900/50 bg-gradient-to-b from-amber-50/60 to-white dark:from-slate-800/90 dark:to-slate-900 shadow-sm hover:shadow-md transition">
+              <div class="flex items-start justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-11 h-11 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-md shadow-amber-500/20">
+                    🎲
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-base text-slate-900 dark:text-white">Probability</h4>
+                    <p class="text-xs font-semibold text-amber-600 dark:text-amber-400">الاحتمال والإحصاء (شابترين)</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1 text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <i class="fa-regular fa-clock text-xs text-amber-500"></i>
+                  <span class="subject-time-badge" data-key="time_prob">07:30 PM</span>
+                </div>
+              </div>
+
+              <!-- Chapters -->
+              <div class="mt-4 pt-4 border-t border-amber-100 dark:border-slate-800 space-y-2.5">
+                <div class="chapter-item flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" id="item-prob-ch1" data-id="prob-ch1" class="hidden checkbox-custom" onchange="toggleItem('prob-ch1')">
+                    <label for="item-prob-ch1" class="w-5 h-5 rounded-md border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center cursor-pointer hover:border-amber-500 transition">
+                      <i class="fa-solid fa-check text-[10px] text-amber-600 check-icon opacity-0 scale-50 transition-all"></i>
+                    </label>
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 item-title">Chapter (ChP 1)</span>
+                  </div>
+                  <span class="text-[11px] px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 font-bold">ChP 1</span>
+                </div>
+
+                <div class="chapter-item flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" id="item-prob-ch2" data-id="prob-ch2" class="hidden checkbox-custom" onchange="toggleItem('prob-ch2')">
+                    <label for="item-prob-ch2" class="w-5 h-5 rounded-md border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center cursor-pointer hover:border-amber-500 transition">
+                      <i class="fa-solid fa-check text-[10px] text-amber-600 check-icon opacity-0 scale-50 transition-all"></i>
+                    </label>
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 item-title">Chapter (ChP 2)</span>
+                  </div>
+                  <span class="text-[11px] px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 font-bold">ChP 2</span>
+                </div>
+              </div>
+
+              <div class="mt-3">
+                <input type="text" data-subject="prob" onchange="saveSubjectNote('prob', this.value)" placeholder="ملاحظة سريعة للاحتمالات والقوانين..." class="subject-note-input w-full text-xs px-3 py-1.5 rounded-lg bg-amber-50/50 dark:bg-slate-800/40 border border-amber-200/60 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:text-slate-200">
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Custom User-Added Subjects Container -->
+        <div id="customSubjectsContainer" class="space-y-6"></div>
+
+      </div>
+    </div>
+
+    <!-- ==================== TAB 2: EXAMS SCHEDULE (جدول الامتحانات) ==================== -->
+    <div id="tabContent-examsTab" class="tab-content hidden space-y-6">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800">
+        <div>
+          <span class="px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+            <i class="fa-solid fa-calendar-check"></i> مواعيد الاختبارات النهائية والميدتيرم
+          </span>
+          <h2 class="text-2xl font-black text-slate-900 dark:text-white mt-1">جدول الامتحانات والعد التنازلي</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">حدد مواعيد اختباراتك مع القاعة والملاحظات لمتابعة الوقت المتبقي بالساعات والدقائق.</p>
+        </div>
+        <button onclick="openModal('addExamModal')" class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-rose-600/20 transition flex items-center gap-2">
+          <i class="fa-solid fa-plus"></i>
+          <span>إضافة امتحان جديد</span>
+        </button>
+      </div>
+
+      <!-- Exams List Container -->
+      <div id="examsListGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+    <!-- ==================== TAB 3: OFFLINE LECTURES (الدروس والمحاضرات) ==================== -->
+    <div id="tabContent-lecturesTab" class="tab-content hidden space-y-6">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800">
+        <div>
+          <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+            <i class="fa-solid fa-school"></i> الحضور بالجامعة والسنتر
+          </span>
+          <h2 class="text-2xl font-black text-slate-900 dark:text-white mt-1">الدروس والمحاضرات الحضورية</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">سجل أسماء الدكاترة، المعيدين، القاعات، والمواعيد لضمان عدم تفويت أي محاضرة.</p>
+        </div>
+        <button onclick="openModal('addLectureModal')" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-emerald-600/20 transition flex items-center gap-2">
+          <i class="fa-solid fa-plus"></i>
+          <span>إضافة محاضرة / درس</span>
+        </button>
+      </div>
+
+      <!-- Offline Lectures List -->
+      <div id="lecturesListGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+    <!-- ==================== TAB 4: ONLINE CLASSES (الدروس الأونلاين) ==================== -->
+    <div id="tabContent-onlineTab" class="tab-content hidden space-y-6">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800">
+        <div>
+          <span class="px-3 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300">
+            <i class="fa-solid fa-globe"></i> Zoom • Microsoft Teams • YouTube
+          </span>
+          <h2 class="text-2xl font-black text-slate-900 dark:text-white mt-1">الدروس والسكاشن الأونلاين</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">احفظ روابط الميتينج المباشرة، كلمات المرور، ومواعيد البث بنقرة زر.</p>
+        </div>
+        <button onclick="openModal('addOnlineModal')" class="px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-sky-600/20 transition flex items-center gap-2">
+          <i class="fa-solid fa-plus"></i>
+          <span>إضافة درس أونلاين</span>
+        </button>
+      </div>
+
+      <!-- Online Classes Grid -->
+      <div id="onlineListGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+    <!-- General Scratchpad -->
+    <div class="glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm mt-8">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-pen-nib text-indigo-600 dark:text-indigo-400"></i>
+          <h3 class="font-bold text-base text-slate-900 dark:text-white">ملاحظات سريعة ومسائل هامة للمراجعة</h3>
+        </div>
+        <span class="text-xs text-slate-400">حفظ تلقائي فوري</span>
+      </div>
+      <textarea id="generalNotes" oninput="saveGeneralNotes(this.value)" rows="3" placeholder="سجل هنا النقاط الهامة، القوانين المنسية، مواعيد المراجعة مع أصدقائك..." class="w-full p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100"></textarea>
+    </div>
+
+  </main>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- 1. AI Image & Handwriting Scanner Modal -->
+  <div id="aiScannerModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+          <i class="fa-solid fa-brain text-lg"></i>
+          <h3 class="font-bold text-slate-900 dark:text-white">قارئ ومحلل الخط اليدوي الذكي (AI Scanner)</h3>
+        </div>
+        <button onclick="closeModal('aiScannerModal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-500 dark:text-slate-400">
+        التقط أو ارفع صورة جدول كتبته بيدك في الكشكول أو خريطة ذهنية، وسيقوم الذكاء الاصطناعي بقراءة الأيام والشباتر وتوزيعها مباشرة في جدولك!
+      </p>
+
+      <!-- Upload Zone -->
+      <div id="scannerDropZone" class="relative border-2 border-dashed border-indigo-300 dark:border-indigo-800/80 rounded-2xl p-6 text-center cursor-pointer hover:bg-indigo-50/50 dark:hover:bg-slate-800/50 transition overflow-hidden">
+        <input type="file" id="scanFileInput" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" onchange="handleImageScan(event)">
+        
+        <!-- Scanner Beam Overlay -->
+        <div id="scanLine" class="scan-line absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_15px_#38bdf8] hidden z-20 pointer-events-none"></div>
+
+        <div id="scannerPlaceholder" class="space-y-2">
+          <div class="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto text-xl">
+            <i class="fa-solid fa-camera"></i>
+          </div>
+          <p class="text-xs font-bold text-slate-700 dark:text-slate-200">اضغط لرفع صورة الكشكول أو اسحب الصورة هنا</p>
+          <span class="text-[11px] text-slate-400 block">يدعم JPG, PNG, صور الكاميرا للمذكرات</span>
+        </div>
+
+        <!-- Preview Image Container -->
+        <img id="scannedImagePreview" class="hidden max-h-48 rounded-xl mx-auto shadow-md object-contain relative z-10" alt="Preview">
+      </div>
+
+      <!-- Scanning Status & Result Preview -->
+      <div id="scanResultBox" class="hidden p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs space-y-2">
+        <div class="flex items-center justify-between text-indigo-600 dark:text-indigo-400 font-bold">
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle-check"></i> تم استخراج البيانات بنجاح:</span>
+          <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">مكتمل 100%</span>
+        </div>
+        <p id="extractedSummaryText" class="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed"></p>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button onclick="closeModal('aiScannerModal')" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">إلغاء</button>
+        <button id="applyScanBtn" onclick="applyScannedData()" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hidden">
+          إضافة لجدول المذاكرة &larr;
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Add Custom Subject / Task Modal (With Dynamic Auto-Emoji) -->
+  <div id="addSubjectModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-book-open text-indigo-600"></i>
+          <h3 class="font-bold text-slate-900 dark:text-white">إضافة مادة / واجب جديد</h3>
+        </div>
+        <button onclick="closeModal('addSubjectModal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">اسم المادة</label>
+          <div class="flex items-center gap-2">
+            <span id="autoEmojiBadge" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-lg select-none">📚</span>
+            <input type="text" id="customSubName" oninput="detectEmojiSuggestion(this.value)" placeholder="مثال: Algorithms, شبكات, فيزياء..." class="flex-1 px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-white outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">اليوم</label>
+            <select id="customSubDay" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+              <option value="sunday">الأحد</option>
+              <option value="monday">الإثنين</option>
+              <option value="tuesday">الثلاثاء</option>
+              <option value="wednesday">الأربعاء</option>
+              <option value="thursday">الخميس</option>
+              <option value="friday">الجمعة</option>
+              <option value="saturday">السبت</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">وقت المذاكرة</label>
+            <input type="time" id="customSubTime" value="18:00" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">عدد الشباتر أو ملفات الـ PDF</label>
+          <input type="number" id="customSubChaptersCount" min="1" max="15" value="2" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">ملاحظة إضافية</label>
+          <input type="text" id="customSubNote" placeholder="حل الشيت، تسليم تقرير..." class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button onclick="closeModal('addSubjectModal')" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">إلغاء</button>
+        <button onclick="saveCustomSubject()" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">حفظ المادة</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Add Exam Modal -->
+  <div id="addExamModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-file-pen text-rose-500"></i>
+          <h3 class="font-bold text-slate-900 dark:text-white">إضافة موعد امتحان جديد</h3>
+        </div>
+        <button onclick="closeModal('addExamModal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">اسم المادة / الاختبار</label>
+          <input type="text" id="examName" placeholder="مثال: Operating System - فاينال" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">تاريخ الامتحان</label>
+            <input type="date" id="examDate" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">وقت البدء</label>
+            <input type="time" id="examTime" value="09:00" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">مكان الامتحان / المدرج</label>
+          <input type="text" id="examHall" placeholder="مدرج 4 - الدور الثاني" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button onclick="closeModal('addExamModal')" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">إلغاء</button>
+        <button onclick="saveExamItem()" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-sm">حفظ الامتحان</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Add Offline Lecture Modal -->
+  <div id="addLectureModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-chalkboard-user text-emerald-500"></i>
+          <h3 class="font-bold text-slate-900 dark:text-white">إضافة محاضرة / درس حضوري</h3>
+        </div>
+        <button onclick="closeModal('addLectureModal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">المادة</label>
+          <input type="text" id="lecSubject" placeholder="مثال: Electronics" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">اسم الدكتور / المدرس</label>
+          <input type="text" id="lecDoctor" placeholder="د. أحمد / م. محمود" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">اليوم</label>
+            <select id="lecDay" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+              <option value="الأحد">الأحد</option>
+              <option value="الإثنين">الإثنين</option>
+              <option value="الثلاثاء">الثلاثاء</option>
+              <option value="الأربعاء">الأربعاء</option>
+              <option value="الخميس">الخميس</option>
+              <option value="السبت">السبت</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">الوقت</label>
+            <input type="time" id="lecTime" value="10:00" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">المكان / القاعة</label>
+          <input type="text" id="lecLocation" placeholder="مبنى كهرباء - معمل 2" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button onclick="closeModal('addLectureModal')" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">إلغاء</button>
+        <button onclick="saveLectureItem()" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">حفظ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Add Online Class Modal -->
+  <div id="addOnlineModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-video text-sky-500"></i>
+          <h3 class="font-bold text-slate-900 dark:text-white">إضافة جلسة / كورس أونلاين</h3>
+        </div>
+        <button onclick="closeModal('addOnlineModal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">عنوان الجلسة / المادة</label>
+          <input type="text" id="onlineTitle" placeholder="Data Science Live Session" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">المنصة</label>
+            <select id="onlinePlatform" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+              <option value="Zoom">Zoom</option>
+              <option value="Teams">Microsoft Teams</option>
+              <option value="Google Meet">Google Meet</option>
+              <option value="YouTube">YouTube Live</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">الموعد</label>
+            <input type="time" id="onlineTime" value="20:00" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">رابط الميتينج (Link)</label>
+          <input type="url" id="onlineLink" placeholder="https://zoom.us/j/..." class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Meeting ID</label>
+            <input type="text" id="onlineMeetingId" placeholder="123 456 7890" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">كلمة المرور / الباسكود</label>
+            <input type="text" id="onlinePasscode" placeholder="12345" class="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white outline-none">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button onclick="closeModal('addOnlineModal')" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">إلغاء</button>
+        <button onclick="saveOnlineItem()" class="px-4 py-2 rounded-xl text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white shadow-sm">حفظ الجلسة</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script>
+    // Audio Chime Generator using Web Audio API
+    function playBeep(type = 'success') {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        if (type === 'success') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(659.25, audioCtx.currentTime + 0.15);
+          gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.4);
+        } else if (type === 'click') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+          gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.05);
+        } else if (type === 'timerEnd') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+          osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.2);
+          gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.6);
+        }
+      } catch (e) {
+        // audio might be blocked before first user gesture
+      }
+    }
+
+    // STATE STORAGE
+    const STORAGE_KEY = 'study_planner_master_v2';
+    let appState = {
+      completed: {},
+      subjectNotes: {},
+      generalNotes: '',
+      customSubjects: [],
+      exams: [
+        { id: 'ex_1', name: 'Intro to Data Science', date: '2026-11-15', time: '09:00', hall: 'مدرج أ - الدور الثالث' },
+        { id: 'ex_2', name: 'Computer Security', date: '2026-11-18', time: '11:30', hall: 'معمل الحاسبات 1' },
+        { id: 'ex_3', name: 'Probability & Statistics', date: '2026-11-22', time: '09:00', hall: 'مدرج 2 المركز الرئيسي' }
+      ],
+      lectures: [
+        { id: 'lec_1', subject: 'Computer Security', doctor: 'د. خالد عبد العزيز', day: 'الثلاثاء', time: '10:00 AM', location: 'مدرج د' },
+        { id: 'lec_2', subject: 'Electronic Circuits', doctor: 'د. محمود رضوان', day: 'الثلاثاء', time: '12:30 PM', location: 'معمل الهندسة 3' }
+      ],
+      onlineClasses: [
+        { id: 'on_1', title: 'Data Science Revision Session', platform: 'Zoom', time: '08:00 PM', link: 'https://zoom.us', meetingId: '849 2039 1192', passcode: '99201' },
+        { id: 'on_2', title: 'OS Processes & Deadlock', platform: 'Teams', time: '06:30 PM', link: 'https://teams.microsoft.com', meetingId: 'Teams Channel', passcode: '-' }
+      ],
+      theme: 'light'
+    };
+
+    function loadState() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          appState = { ...appState, ...parsed };
+        } catch (e) {
+          console.error('Error loading stored state');
+        }
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+    }
+
+    // ================= FLIP CLOCK LOGIC =================
+    function updateFlipClock() {
+      const now = new Date();
+      let h = now.getHours();
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const s = String(now.getSeconds()).padStart(2, '0');
+      const period = h >= 12 ? 'PM' : 'AM';
+      h = h % 12;
+      h = h ? h : 12; // convert 0 to 12
+      const hStr = String(h).padStart(2, '0');
+
+      document.getElementById('flipHours').innerText = hStr;
+      document.getElementById('flipMinutes').innerText = m;
+      document.getElementById('flipSeconds').innerText = s;
+      document.getElementById('flipPeriod').innerText = period;
+
+      const dateStr = now.toLocaleDateString('ar-EG', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+      document.getElementById('currentDateBadge').innerText = dateStr;
+    }
+    setInterval(updateFlipClock, 1000);
+
+    // ================= INTERACTIVE CALENDAR =================
+    let calCurrentDate = new Date();
+
+    function renderCalendar() {
+      const grid = document.getElementById('calendarDaysGrid');
+      const title = document.getElementById('calendarMonthTitle');
+      if (!grid || !title) return;
+
+      grid.innerHTML = '';
+      const year = calCurrentDate.getFullYear();
+      const month = calCurrentDate.getMonth();
+
+      const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+      title.innerText = `${monthNames[month]} ${year}`;
+
+      const firstDayIndex = new Date(year, month, 1).getDay(); // 0 is Sunday
+      // Arabic week starts Saturday (index 6 in US Sunday-first standard: Sat=6, Sun=0, Mon=1, Tue=2, Wed=3, Thu=4, Fri=5)
+      const adjustedFirstDay = (firstDayIndex + 1) % 7; 
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      const today = new Date();
+
+      // Empty lead cells
+      for (let i = 0; i < adjustedFirstDay; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'p-2 text-slate-300 dark:text-slate-700 opacity-20';
+        grid.appendChild(emptyCell);
+      }
+
+      // Populate Days
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayCell = document.createElement('button');
+        const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
+        
+        // Formatted date string for exam checks
+        const checkDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const hasExam = appState.exams && appState.exams.some(e => e.date === checkDateStr);
+
+        let cellClasses = 'p-2 rounded-xl text-center relative transition flex flex-col items-center justify-center font-bold ';
+
+        if (isToday) {
+          cellClasses += 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 ';
+        } else if (hasExam) {
+          cellClasses += 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 hover:bg-rose-100 ';
+        } else {
+          cellClasses += 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 ';
+        }
+
+        dayCell.className = cellClasses;
+        dayCell.innerHTML = `<span>${day}</span>`;
+
+        if (hasExam) {
+          const dot = document.createElement('span');
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-rose-500 mt-0.5';
+          dayCell.appendChild(dot);
+        }
+
+        dayCell.onclick = () => {
+          playBeep('click');
+          if (hasExam) {
+            switchTab('examsTab');
+          }
+        };
+
+        grid.appendChild(dayCell);
+      }
+    }
+
+    function changeMonth(delta) {
+      calCurrentDate.setMonth(calCurrentDate.getMonth() + delta);
+      renderCalendar();
+    }
+
+    // ================= TABS SWITCHER =================
+    function switchTab(tabId) {
+      playBeep('click');
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+      document.querySelectorAll('.tab-nav-btn').forEach(b => {
+        b.classList.remove('bg-indigo-600', 'text-white', 'shadow-sm');
+        b.classList.add('bg-white', 'dark:bg-slate-800', 'text-slate-600', 'dark:text-slate-300');
+      });
+
+      const activeContent = document.getElementById('tabContent-' + tabId);
+      const activeBtn = document.getElementById('tabBtn-' + tabId);
+
+      if (activeContent) activeContent.classList.remove('hidden');
+      if (activeBtn) {
+        activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-sm');
+        activeBtn.classList.remove('bg-white', 'dark:bg-slate-800', 'text-slate-600', 'dark:text-slate-300');
+      }
+    }
+
+    function scrollToSection(id) {
+      switchTab('studySchedule');
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ================= AUTO EMOJI RECOGNITION =================
+    const EMOJI_MAP = {
+      'security': '🔒', 'أمن': '🔒', 'امان': '🛡️', 'حاسوب': '💻',
+      'data': '📊', 'بيانات': '📊', 'علم': '📈', 'إحصاء': '📉',
+      'electronic': '⚡', 'الكترون': '⚡', 'كهرباء': '🔌', 'دوائر': '📟',
+      'operating': '💻', 'تشغيل': '🖥️', 'system': '⚙️', 'نظام': '⚙️',
+      'probability': '🎲', 'احتمال': '🎲', 'رياضة': '📐', 'حساب': '🧮',
+      'network': '🌐', 'شبكات': '🌐', 'web': '🕸️', 'ذكاء': '🤖',
+      'ai': '🧠', 'كيمياء': '🧪', 'فيزياء': '⚛️', 'عربي': '📖', 'انجليزي': '🇬🇧',
+      'برمجة': '👨‍💻', 'كود': '💻', 'algorithm': '🧩'
+    };
+
+    function detectEmojiSuggestion(val) {
+      const lower = val.toLowerCase();
+      let selectedEmoji = '📚';
+      for (const [key, emoji] of Object.entries(EMOJI_MAP)) {
+        if (lower.includes(key)) {
+          selectedEmoji = emoji;
+          break;
+        }
+      }
+      document.getElementById('autoEmojiBadge').innerText = selectedEmoji;
+    }
+
+    // ================= CUSTOM SUBJECT ADDITION =================
+    function saveCustomSubject() {
+      const name = document.getElementById('customSubName').value.trim();
+      const day = document.getElementById('customSubDay').value;
+      const time = document.getElementById('customSubTime').value;
+      const chCount = parseInt(document.getElementById('customSubChaptersCount').value) || 2;
+      const note = document.getElementById('customSubNote').value.trim();
+      const emoji = document.getElementById('autoEmojiBadge').innerText || '📚';
+
+      if (!name) return;
+
+      const newSub = {
+        id: 'cust_' + Date.now(),
+        name,
+        day,
+        time,
+        chCount,
+        note,
+        emoji
+      };
+
+      if (!appState.customSubjects) appState.customSubjects = [];
+      appState.customSubjects.push(newSub);
+      saveState();
+
+      renderCustomSubjects();
+      updateAllProgress();
+      closeModal('addSubjectModal');
+      playBeep('success');
+
+      // Clear input
+      document.getElementById('customSubName').value = '';
+    }
+
+    function renderCustomSubjects() {
+      const container = document.getElementById('customSubjectsContainer');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (!appState.customSubjects || appState.customSubjects.length === 0) return;
+
+      const dayNames = {
+        'sunday': 'الأحد', 'monday': 'الإثنين', 'tuesday': 'الثلاثاء',
+        'wednesday': 'الأربعاء', 'thursday': 'الخميس', 'friday': 'الجمعة', 'saturday': 'السبت'
+      };
+
+      appState.customSubjects.forEach(sub => {
+        const subCard = document.createElement('div');
+        subCard.className = 'subject-card rounded-2xl p-5 border border-indigo-200 dark:border-indigo-900/50 bg-gradient-to-b from-indigo-50/50 to-white dark:from-slate-800/90 dark:to-slate-900 shadow-sm';
+        
+        let chaptersHtml = '';
+        for (let i = 1; i <= sub.chCount; i++) {
+          const itemId = `${sub.id}-ch${i}`;
+          chaptersHtml += `
+            <div class="chapter-item flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700">
+              <div class="flex items-center gap-3">
+                <input type="checkbox" id="item-${itemId}" data-id="${itemId}" class="hidden checkbox-custom" onchange="toggleItem('${itemId}')">
+                <label for="item-${itemId}" class="w-5 h-5 rounded-md border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center cursor-pointer hover:border-indigo-500 transition">
+                  <i class="fa-solid fa-check text-[10px] text-indigo-600 check-icon opacity-0 scale-50 transition-all"></i>
+                </label>
+                <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 item-title">Chapter / Part (${i})</span>
+              </div>
+              <span class="text-[11px] px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-bold">ChP ${i}</span>
+            </div>
+          `;
+        }
+
+        subCard.innerHTML = `
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-11 h-11 rounded-xl bg-indigo-500 text-white flex items-center justify-center text-xl shadow-md shadow-indigo-500/20">
+                ${sub.emoji}
+              </div>
+              <div>
+                <h4 class="font-bold text-base text-slate-900 dark:text-white">${sub.name}</h4>
+                <p class="text-xs font-semibold text-indigo-600 dark:text-indigo-400">يوم ${dayNames[sub.day] || sub.day} - ${sub.chCount} فصول</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                ${sub.time || '18:00'}
+              </span>
+              <button onclick="deleteCustomSubject('${sub.id}')" class="text-slate-400 hover:text-rose-500 p-1"><i class="fa-regular fa-trash-can text-xs"></i></button>
+            </div>
+          </div>
+          <div class="mt-4 pt-4 border-t border-indigo-100 dark:border-slate-800 space-y-2.5">
+            ${chaptersHtml}
+          </div>
+          ${sub.note ? `<p class="mt-3 text-xs text-slate-500 dark:text-slate-400 italic bg-white/60 dark:bg-slate-800/40 p-2 rounded-lg">💡 ${sub.note}</p>` : ''}
+        `;
+
+        container.appendChild(subCard);
+      });
+    }
+
+    function deleteCustomSubject(id) {
+      appState.customSubjects = appState.customSubjects.filter(s => s.id !== id);
+      saveState();
+      renderCustomSubjects();
+      updateAllProgress();
+    }
+
+    // ================= EXAMS SECTION =================
+    function saveExamItem() {
+      const name = document.getElementById('examName').value.trim();
+      const date = document.getElementById('examDate').value;
+      const time = document.getElementById('examTime').value;
+      const hall = document.getElementById('examHall').value.trim();
+
+      if (!name || !date) return;
+
+      const newExam = {
+        id: 'ex_' + Date.now(),
+        name,
+        date,
+        time,
+        hall
+      };
+
+      if (!appState.exams) appState.exams = [];
+      appState.exams.push(newExam);
+      saveState();
+
+      renderExams();
+      renderCalendar();
+      closeModal('addExamModal');
+      playBeep('success');
+
+      document.getElementById('examName').value = '';
+      document.getElementById('examHall').value = '';
+    }
+
+    function renderExams() {
+      const container = document.getElementById('examsListGrid');
+      const badge = document.getElementById('examsCountBadge');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const count = appState.exams ? appState.exams.length : 0;
+      if (badge) badge.innerText = count;
+
+      if (!appState.exams || count === 0) {
+        container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-400 text-xs">لا توجد امتحانات مضافة حتى الآن. اضغط على "إضافة امتحان جديد" لبدء التتبع.</div>`;
+        return;
+      }
+
+      appState.exams.forEach(ex => {
+        // Calculate days left
+        const examDateObj = new Date(`${ex.date}T${ex.time || '09:00'}`);
+        const diffMs = examDateObj - new Date();
+        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        let daysLeftBadge = '';
+
+        if (diffDays < 0) {
+          daysLeftBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">انتهى الامتحان</span>`;
+        } else if (diffDays === 0) {
+          daysLeftBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500 text-white animate-pulse">اليوم! 🔥</span>`;
+        } else {
+          daysLeftBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">متبقي ${diffDays} يوم</span>`;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'glass-card rounded-3xl p-5 border border-rose-200/60 dark:border-rose-900/40 shadow-sm flex flex-col justify-between';
+        card.innerHTML = `
+          <div>
+            <div class="flex items-start justify-between gap-2">
+              <span class="w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center text-lg font-bold">
+                <i class="fa-solid fa-graduation-cap"></i>
+              </span>
+              ${daysLeftBadge}
+            </div>
+            <h4 class="font-bold text-base text-slate-900 dark:text-white mt-3">${ex.name}</h4>
+            <div class="mt-3 space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+              <div class="flex items-center gap-2"><i class="fa-regular fa-calendar text-rose-500"></i> ${ex.date} (${ex.time || '09:00 AM'})</div>
+              <div class="flex items-center gap-2"><i class="fa-solid fa-location-dot text-rose-500"></i> ${ex.hall || 'لم يحدد المدرج'}</div>
+            </div>
+          </div>
+          <div class="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <span class="text-[11px] text-slate-400">امتحان نهائي</span>
+            <button onclick="deleteExam('${ex.id}')" class="text-slate-400 hover:text-rose-500 text-xs transition"><i class="fa-solid fa-trash"></i> حذف</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function deleteExam(id) {
+      appState.exams = appState.exams.filter(e => e.id !== id);
+      saveState();
+      renderExams();
+      renderCalendar();
+    }
+
+    // ================= OFFLINE LECTURES SECTION =================
+    function saveLectureItem() {
+      const subject = document.getElementById('lecSubject').value.trim();
+      const doctor = document.getElementById('lecDoctor').value.trim();
+      const day = document.getElementById('lecDay').value;
+      const time = document.getElementById('lecTime').value;
+      const location = document.getElementById('lecLocation').value.trim();
+
+      if (!subject) return;
+
+      const newLec = {
+        id: 'lec_' + Date.now(),
+        subject,
+        doctor,
+        day,
+        time,
+        location
+      };
+
+      if (!appState.lectures) appState.lectures = [];
+      appState.lectures.push(newLec);
+      saveState();
+
+      renderLectures();
+      closeModal('addLectureModal');
+      playBeep('success');
+
+      document.getElementById('lecSubject').value = '';
+      document.getElementById('lecDoctor').value = '';
+    }
+
+    function renderLectures() {
+      const container = document.getElementById('lecturesListGrid');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (!appState.lectures || appState.lectures.length === 0) {
+        container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-400 text-xs">لا توجد محاضرات مسجلة حالياً.</div>`;
+        return;
+      }
+
+      appState.lectures.forEach(lec => {
+        const card = document.createElement('div');
+        card.className = 'glass-card rounded-3xl p-5 border border-emerald-200/60 dark:border-emerald-900/40 shadow-sm flex flex-col justify-between';
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                ${lec.day}
+              </span>
+              <span class="font-mono text-xs font-bold text-slate-500 dark:text-slate-400">${lec.time}</span>
+            </div>
+            <h4 class="font-bold text-base text-slate-900 dark:text-white mt-3">${lec.subject}</h4>
+            <div class="mt-3 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+              <div class="flex items-center gap-2"><i class="fa-solid fa-user-tie text-emerald-500"></i> ${lec.doctor || 'أستاذ المادة'}</div>
+              <div class="flex items-center gap-2"><i class="fa-solid fa-map-pin text-emerald-500"></i> ${lec.location || 'القاعة الرئيسية'}</div>
+            </div>
+          </div>
+          <div class="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 text-right">
+            <button onclick="deleteLecture('${lec.id}')" class="text-slate-400 hover:text-rose-500 text-xs transition"><i class="fa-solid fa-trash"></i> حذف</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function deleteLecture(id) {
+      appState.lectures = appState.lectures.filter(l => l.id !== id);
+      saveState();
+      renderLectures();
+    }
+
+    // ================= ONLINE CLASSES SECTION =================
+    function saveOnlineItem() {
+      const title = document.getElementById('onlineTitle').value.trim();
+      const platform = document.getElementById('onlinePlatform').value;
+      const time = document.getElementById('onlineTime').value;
+      const link = document.getElementById('onlineLink').value.trim();
+      const meetingId = document.getElementById('onlineMeetingId').value.trim();
+      const passcode = document.getElementById('onlinePasscode').value.trim();
+
+      if (!title) return;
+
+      const newOnline = {
+        id: 'on_' + Date.now(),
+        title,
+        platform,
+        time,
+        link: link || '#',
+        meetingId,
+        passcode
+      };
+
+      if (!appState.onlineClasses) appState.onlineClasses = [];
+      appState.onlineClasses.push(newOnline);
+      saveState();
+
+      renderOnlineClasses();
+      closeModal('addOnlineModal');
+      playBeep('success');
+
+      document.getElementById('onlineTitle').value = '';
+      document.getElementById('onlineLink').value = '';
+    }
+
+    function renderOnlineClasses() {
+      const container = document.getElementById('onlineListGrid');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (!appState.onlineClasses || appState.onlineClasses.length === 0) {
+        container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-400 text-xs">لا توجد سكاشن أونلاين مسجلة.</div>`;
+        return;
+      }
+
+      appState.onlineClasses.forEach(on => {
+        const card = document.createElement('div');
+        card.className = 'glass-card rounded-3xl p-5 border border-sky-200/60 dark:border-sky-900/40 shadow-sm flex flex-col justify-between';
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                <i class="fa-solid fa-video text-xs mr-1"></i> ${on.platform}
+              </span>
+              <span class="font-mono text-xs font-bold text-slate-500 dark:text-slate-400">${on.time}</span>
+            </div>
+            <h4 class="font-bold text-base text-slate-900 dark:text-white mt-3">${on.title}</h4>
+            <div class="mt-3 space-y-1 text-xs text-slate-600 dark:text-slate-300 font-mono">
+              ${on.meetingId ? `<div>ID: ${on.meetingId}</div>` : ''}
+              ${on.passcode ? `<div>Pass: ${on.passcode}</div>` : ''}
+            </div>
+          </div>
+          <div class="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <a href="${on.link}" target="_blank" class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-sm">
+              <i class="fa-solid fa-arrow-up-right-from-square"></i> دخول الميتينج
+            </a>
+            <button onclick="deleteOnline('${on.id}')" class="text-slate-400 hover:text-rose-500 text-xs transition"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function deleteOnline(id) {
+      appState.onlineClasses = appState.onlineClasses.filter(o => o.id !== id);
+      saveState();
+      renderOnlineClasses();
+    }
+
+    // ================= AI IMAGE / HANDWRITING SCANNER SIMULATOR =================
+    let pendingScannedData = null;
+
+    function handleImageScan(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const preview = document.getElementById('scannedImagePreview');
+        const placeholder = document.getElementById('scannerPlaceholder');
+        const scanLine = document.getElementById('scanLine');
+        const dropZone = document.getElementById('scannerDropZone');
+
+        preview.src = e.target.result;
+        preview.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+
+        // Start scanning beam animation
+        dropZone.classList.add('scanner-active');
+        scanLine.classList.remove('hidden');
+
+        // Simulate intelligent OCR extraction parsing
+        setTimeout(() => {
+          dropZone.classList.remove('scanner-active');
+          scanLine.classList.add('hidden');
+
+          document.getElementById('scanResultBox').classList.remove('hidden');
+          document.getElementById('applyScanBtn').classList.remove('hidden');
+
+          pendingScannedData = {
+            name: 'Advanced Networking & Algorithms',
+            day: 'wednesday',
+            time: '19:00',
+            chCount: 3,
+            note: 'تم استخراجها تلقائياً من الملاحظات المكتوبة بخط اليد'
+          };
+
+          document.getElementById('extractedSummaryText').innerText = 
+            `تم التعرف على مادة: "${pendingScannedData.name}" - يوم: الأربعاء - 3 شباتر للمذاكرة والمراجعة. اضغط "إضافة لجدول المذاكرة" لتطبيقها فوراً.`;
+          playBeep('success');
+        }, 2200);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function applyScannedData() {
+      if (!pendingScannedData) return;
+
+      if (!appState.customSubjects) appState.customSubjects = [];
+      appState.customSubjects.push({
+        id: 'cust_scan_' + Date.now(),
+        name: pendingScannedData.name,
+        day: pendingScannedData.day,
+        time: pendingScannedData.time,
+        chCount: pendingScannedData.chCount,
+        note: pendingScannedData.note,
+        emoji: '📝'
+      });
+
+      saveState();
+      renderCustomSubjects();
+      updateAllProgress();
+      closeModal('aiScannerModal');
+      playBeep('success');
+
+      confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
+    }
+
+    // ================= MODAL HELPERS =================
+    function openModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+    }
+
+    function closeModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    // ================= BASE PLANNER LOGIC (CHECKLIST, POMODORO, NOTES) =================
+    function toggleItem(id) {
+      const checkbox = document.getElementById('item-' + id);
+      if (!checkbox) return;
+
+      appState.completed[id] = checkbox.checked;
+      saveState();
+
+      if (checkbox.checked) {
+        playBeep('success');
+      }
+
+      updateAllProgress();
+      checkAllCompletedCelebration();
+    }
+
+    function saveSubjectNote(key, val) {
+      if (!appState.subjectNotes) appState.subjectNotes = {};
+      appState.subjectNotes[key] = val;
+      saveState();
+    }
+
+    function saveGeneralNotes(val) {
+      appState.generalNotes = val;
+      saveState();
+    }
+
+    function updateAllProgress() {
+      const allCheckboxes = document.querySelectorAll('.chapter-item input[type="checkbox"]');
+      const totalCount = allCheckboxes.length;
+      let completedCount = 0;
+
+      allCheckboxes.forEach(cb => {
+        const itemId = cb.getAttribute('data-id');
+        const checked = !!appState.completed[itemId];
+        cb.checked = checked;
+        if (checked) completedCount++;
+
+        const titleSpan = cb.closest('.chapter-item')?.querySelector('.item-title');
+        if (titleSpan) {
+          if (checked) {
+            titleSpan.classList.add('line-through', 'text-slate-400', 'dark:text-slate-500');
+          } else {
+            titleSpan.classList.remove('line-through', 'text-slate-400', 'dark:text-slate-500');
+          }
+        }
+      });
+
+      const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+      const completedCountEl = document.getElementById('completedItemsCount');
+      const totalCountEl = document.getElementById('totalItemsCount');
+      const percentageEl = document.getElementById('overallPercentage');
+      const barLinear = document.getElementById('progressBarLinear');
+
+      if (completedCountEl) completedCountEl.innerText = completedCount;
+      if (totalCountEl) totalCountEl.innerText = totalCount;
+      if (percentageEl) percentageEl.innerText = percentage + '%';
+      if (barLinear) barLinear.style.width = percentage + '%';
+
+      const circle = document.getElementById('progressCircle');
+      if (circle) circle.setAttribute('stroke-dasharray', `${percentage}, 100`);
+
+      const badge = document.getElementById('motivationalBadge');
+      if (badge) {
+        if (percentage === 0) badge.innerText = 'ابدأ أول مهمة! 🚀';
+        else if (percentage < 40) badge.innerText = 'بداية ممتازة، واصل! 🔥';
+        else if (percentage < 70) badge.innerText = 'قطعت نصف المسافة تقريباً! 💪';
+        else if (percentage < 100) badge.innerText = 'اقتربت جداً من إنهاء كل المواد! 🎯';
+        else badge.innerText = 'ألف مبروك! أتممت مراجعة كل المنهج! 🏆';
+      }
+
+      document.querySelectorAll('.day-section').forEach(section => {
+        const dayCheckboxes = section.querySelectorAll('input[type="checkbox"]');
+        let dayDone = 0;
+        dayCheckboxes.forEach(cb => {
+          if (cb.checked) dayDone++;
+        });
+        const dayPercent = dayCheckboxes.length > 0 ? Math.round((dayDone / dayCheckboxes.length) * 100) : 0;
+        const tag = section.querySelector('.day-progress-tag');
+        if (tag) {
+          tag.innerText = dayPercent + '% منجز';
+          if (dayPercent === 100) {
+            tag.className = 'day-progress-tag px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300';
+          } else {
+            tag.className = 'day-progress-tag px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300';
+          }
+        }
+      });
+    }
+
+    function checkAllCompletedCelebration() {
+      const allCheckboxes = document.querySelectorAll('.chapter-item input[type="checkbox"]');
+      const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
+      if (allChecked && allCheckboxes.length > 0) {
+        confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+      }
+    }
+
+    function filterDays(dayKey) {
+      playBeep('click');
+      const tabs = document.querySelectorAll('.day-tab-btn');
+      tabs.forEach(tab => {
+        tab.classList.remove('bg-indigo-600', 'text-white', 'shadow-sm');
+        tab.classList.add('bg-white', 'dark:bg-slate-800', 'text-slate-600', 'dark:text-slate-300');
+      });
+
+      event.currentTarget.classList.add('bg-indigo-600', 'text-white', 'shadow-sm');
+      event.currentTarget.classList.remove('bg-white', 'dark:bg-slate-800', 'text-slate-600', 'dark:text-slate-300');
+
+      document.querySelectorAll('.day-section').forEach(sec => {
+        if (dayKey === 'all' || sec.getAttribute('data-day') === dayKey) {
+          sec.style.display = 'block';
+        } else {
+          sec.style.display = 'none';
+        }
+      });
+    }
+
+    function handleSearch(query) {
+      const clean = query.trim().toLowerCase();
+      document.querySelectorAll('.subject-card').forEach(card => {
+        const text = card.innerText.toLowerCase();
+        if (!clean || text.includes(clean)) {
+          card.style.display = 'block';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+
+    // Pomodoro Timer
+    let timeRemaining = 25 * 60;
+    let timerInterval = null;
+    let isRunning = false;
+    let isBreakMode = false;
+
+    function updateTimerDisplay() {
+      const m = Math.floor(timeRemaining / 60);
+      const s = timeRemaining % 60;
+      const display = document.getElementById('timerDisplay');
+      if (display) display.innerText = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function toggleTimer() {
+      if (isRunning) {
+        clearInterval(timerInterval);
+        isRunning = false;
+        document.getElementById('timerBtnText').innerText = 'استئناف';
+        document.getElementById('timerBtnIcon').className = 'fa-solid fa-play';
+      } else {
+        isRunning = true;
+        document.getElementById('timerBtnText').innerText = 'إيقاف';
+        document.getElementById('timerBtnIcon').className = 'fa-solid fa-pause';
+
+        timerInterval = setInterval(() => {
+          if (timeRemaining > 0) {
+            timeRemaining--;
+            updateTimerDisplay();
+          } else {
+            clearInterval(timerInterval);
+            isRunning = false;
+            playBeep('timerEnd');
+            document.getElementById('timerBtnText').innerText = 'بدء';
+            document.getElementById('timerBtnIcon').className = 'fa-solid fa-play';
+
+            if (!isBreakMode) {
+              isBreakMode = true;
+              timeRemaining = 5 * 60;
+              document.getElementById('timerModeBadge').innerText = 'استراحة قهوة ☕';
+              document.getElementById('timerModeBadge').className = 'text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold';
+              document.getElementById('timerMessage').innerText = 'أحسنت! خذ 5 دقائق استراحة واستعد للجولة التالية.';
+            } else {
+              isBreakMode = false;
+              timeRemaining = 25 * 60;
+              document.getElementById('timerModeBadge').innerText = 'جلسة تركيز';
+              document.getElementById('timerModeBadge').className = 'text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-bold';
+              document.getElementById('timerMessage').innerText = '25 دقيقة تركيز تام بدون مشتتات';
+            }
+            updateTimerDisplay();
+          }
+        }, 1000);
+      }
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      isRunning = false;
+      timeRemaining = isBreakMode ? 5 * 60 : 25 * 60;
+      updateTimerDisplay();
+      document.getElementById('timerBtnText').innerText = 'بدء';
+      document.getElementById('timerBtnIcon').className = 'fa-solid fa-play';
+    }
+
+    function switchTimerMode() {
+      clearInterval(timerInterval);
+      isRunning = false;
+      document.getElementById('timerBtnText').innerText = 'بدء';
+      document.getElementById('timerBtnIcon').className = 'fa-solid fa-play';
+
+      isBreakMode = !isBreakMode;
+      if (isBreakMode) {
+        timeRemaining = 5 * 60;
+        document.getElementById('timerModeBadge').innerText = 'استراحة قهوة ☕';
+        document.getElementById('timerModeBadge').className = 'text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold';
+        document.getElementById('timerMessage').innerText = 'استراحة 5 دقائق لتجديد النشاط.';
+      } else {
+        timeRemaining = 25 * 60;
+        document.getElementById('timerModeBadge').innerText = 'جلسة تركيز';
+        document.getElementById('timerModeBadge').className = 'text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-bold';
+        document.getElementById('timerMessage').innerText = '25 دقيقة تركيز تام بدون مشتتات';
+      }
+      updateTimerDisplay();
+    }
+
+    // Theme Toggle
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    themeToggleBtn.addEventListener('click', () => {
+      if (document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.remove('dark');
+        appState.theme = 'light';
+      } else {
+        document.documentElement.classList.add('dark');
+        appState.theme = 'dark';
+      }
+      saveState();
+    });
+
+    // Reset Progress
+    function resetAllProgress() {
+      const confirmReset = window.confirm("هل أنت متأكد من رغبتك في إعادة ضبط تقدم المذاكرة بالكامل؟");
+      if (confirmReset) {
+        appState.completed = {};
+        saveState();
+        updateAllProgress();
+      }
+    }
+
+    // INITIALIZATION ON LOAD
+    window.onload = function () {
+      loadState();
+
+      if (appState.theme === 'dark' || (!appState.theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+
+      if (appState.generalNotes) {
+        const gn = document.getElementById('generalNotes');
+        if (gn) gn.value = appState.generalNotes;
+      }
+
+      if (appState.subjectNotes) {
+        document.querySelectorAll('.subject-note-input').forEach(input => {
+          const key = input.getAttribute('data-subject');
+          if (appState.subjectNotes[key]) {
+            input.value = appState.subjectNotes[key];
+          }
+        });
+      }
+
+      updateFlipClock();
+      renderCalendar();
+      renderExams();
+      renderLectures();
+      renderOnlineClasses();
+      renderCustomSubjects();
+      updateAllProgress();
+      updateTimerDisplay();
+    };
+  </script>
+</body>
+</html>
